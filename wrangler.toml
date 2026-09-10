@@ -1,0 +1,5 @@
+name = "ackworth-jaguars-website"
+compatibility_date = "2026-09-10"
+
+[assets]
+directory = "."
