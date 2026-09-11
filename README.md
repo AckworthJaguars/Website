@@ -1,17 +1,7 @@
-# Ackworth Jaguars Website
+# Ackworth Jaguars Website V2
 
-Initial static website for Ackworth Jaguars Rugby League Club.
+Full multi-page public site and portal prototype.
 
-## Cloudflare
+Public pages are separate HTML pages, not homepage scroll sections. The portal prototype at `/admin/` covers pages, page builder, media, teams/seasons, fixtures, news, sponsors, documents, navigation and settings.
 
-This repository is configured for a Cloudflare Workers static-assets deployment.
-
-- Build command: None
-- Deploy command: `npx wrangler deploy`
-- Root directory: `/`
-
-## Before launch
-
-Replace the placeholder `#` social links in `index.html` with the club's real Facebook, Instagram, YouTube and Spond URLs.
-
-The initial `images/logo.png` and `images/hero.jpg` are crops from the supplied screenshot and are intended as temporary starting assets. Replace them with the original full-resolution club logo and approved photography when available.
+Production architecture: Cloudflare Workers + Static Assets, D1 for structured content, R2 for media/PDFs, authenticated admin portal, and Workers API. Team records are independent of age labels so U12 can become U13 each season while history remains intact; a new U6 page can be created from a template each season.
