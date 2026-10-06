@@ -1,7 +1,39 @@
-# Ackworth Jaguars Website V2
+# Ackworth Jaguars website (v2)
 
-Full multi-page public site and portal prototype.
+Cloudflare Worker + static site. D1 holds content, users, photos and PDFs. No payment card needed.
 
-Public pages are separate HTML pages, not homepage scroll sections. The portal prototype at `/admin/` covers pages, page builder, media, teams/seasons, fixtures, news, sponsors, documents, navigation and settings.
+## Deploy
+1. Cloudflare dashboard > Storage & databases: create a D1 database (this repo is set up for the name `ackworthjaguarswebsite`).
+2. Put the D1 database id in `wrangler.toml` (`database_id`).
+3. In the D1 console, run `schema.sql`, then `seed.sql`.
+4. Replace the contents of the `v2-design` branch with this folder and push.
+5. Workers & Pages > Create > Import a repository, pick the repo and branch. Deploy command: `npx wrangler deploy`.
+6. Open `/admin/`. First visit asks for an admin username and password, then shows a key to add to your authenticator app.
 
-Production architecture: Cloudflare Workers + Static Assets, D1 for structured content, R2 for media/PDFs, authenticated admin portal, and Workers API. Team records are independent of age labels so U12 can become U13 each season while history remains intact; a new U6 page can be created from a template each season.
+## Levels
+- admin: everything, plus settings and users
+- editor: all content and documents
+- coach: fixtures, results and news
+
+## Before cancelling Spond
+Download the code of conduct PDFs from the old site and re-upload them in Documents. The seeded links still point at Spond storage.
+
+## Domain
+After testing: Worker > Settings > Domains & routes > add `ackworthjaguars.co.uk` (the domain's DNS must be on Cloudflare).
+
+## Preview on your own PC
+The pages are filled in by the Worker, so double-clicking an .html file shows a blank page. Run:
+```
+npx wrangler d1 execute jaguars --local --file=schema.sql
+npx wrangler d1 execute jaguars --local --file=seed.sql
+npx wrangler dev
+```
+Then open http://localhost:8787 (admin at /admin/).
+
+## Contact form
+Every message is saved in the portal under Messages. To also get it by email, and to switch on the spam check:
+1. Spam check: Cloudflare dashboard > Turnstile > add a widget for your site hostnames. Paste the Site key into Settings > Turnstile site key. Add the Secret key to the Worker as a secret named `TURNSTILE_SECRET` (Worker > Settings > Variables and secrets).
+2. Email: needs the domain on Cloudflare. Enable Email Routing, add the club email as a destination address and verify it, then remove the `#` from the `send_email` lines in `wrangler.toml` and redeploy. In Settings set Club email (the verified address) and Send-from address (an address on your domain, e.g. website@ackworthjaguars.co.uk).
+
+## New season
+Teams > Move all teams up one age group. Everything stays with the squad. Add your new youngest team.
