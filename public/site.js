@@ -8,7 +8,7 @@ const q = new URLSearchParams(location.search);
 
 fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); return r.json(); }).then(({ settings: S, items: I }) => {
   const of = k => I.filter(x => x.kind === k), teams = of('team'), fx = of('fixture'), pg = document.body.dataset.page;
-  const tname = t => 'U' + t.age, comp = t => +t.age >= +(S.compAge || 12);
+  const tname = t => t.name || 'U' + t.age, lvl = t => t.type && t.type !== 'Auto (by age)' ? t.type : (+t.age >= +(S.compAge || 12) ? 'Competitive' : 'Primary'), comp = t => lvl(t) === 'Competitive', play = t => lvl(t) !== 'Training only';
   const tn = s => { const t = teams.find(x => x.slug === s); return t ? tname(t) : s; };
   const has = f => f.us !== '' && f.us != null && f.them !== '' && f.them != null;
   const up = fx.filter(f => !has(f)).sort((a, b) => a.date < b.date ? -1 : 1), res = fx.filter(has).sort((a, b) => a.date < b.date ? 1 : -1);
@@ -33,24 +33,24 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
     const bg = S.heroImg || '/images/hero.jpg';
     h = `<section class="hero" style="background-image:linear-gradient(90deg,var(--blue) 55%,color-mix(in srgb,var(--blue) 55%,transparent)),url('${U(bg)}')"><div class="wrap"><h1>${E(S.hero || club)}</h1><p>${E(S.intro || '')}</p><a class="btn w" href="/join.html">Join the Jags</a><a class="btn w" href="/fixtures.html">Fixtures and results</a></div></section>` +
       wrap('', `<div class="two"><div><h2>Next match</h2>${n ? fxRow(n) : '<p class="muted">No fixtures added yet.</p>'}</div><div><h2>Latest result</h2>${l ? fxRow(l) : '<p class="muted">No results yet.</p>'}</div></div>`) +
-      wrap('grey', `<h2>Our teams</h2><div class="grid">${teams.map(t => `<a class="card" href="/teams.html?t=${E(t.slug)}"><h3>${tname(t)}</h3><p>${comp(t) ? 'Competitive' : 'Primary'}</p></a>`).join('')}</div>`) +
+      wrap('grey', `<h2>Our teams</h2><div class="grid">${teams.map(t => `<a class="card" href="/teams.html?t=${E(t.slug)}"><h3>${tname(t)}</h3><p>${lvl(t)}</p></a>`).join('')}</div>`) +
       (news.length ? wrap('', `<h2>Latest news</h2><div class="grid">${news.map(x => `<a class="card" href="/news.html"><h3>${E(x.title)}</h3><p>${dd(x.date)}</p></a>`).join('')}</div>`) : '') +
       (sp.length ? wrap('grey', `<h2>Our sponsors</h2><div class="logos">${sp.map(s => `<a href="${U(s.url)}"><img src="${U(s.logo)}" alt="${E(s.name)}"></a>`).join('')}</div>`) : '');
   } else if (pg === 'teams') {
     const t = teams.find(x => x.slug === q.get('t'));
-    if (!t) h = head('Teams', `${E(S.season || '')} squads`) + wrap('', `<div class="grid">${teams.map(x => `<a class="card" href="?t=${E(x.slug)}"><h3>${tname(x)}</h3><p>${comp(x) ? 'Competitive' : 'Primary'}</p></a>`).join('')}</div>`);
+    if (!t) h = head('Teams', `${E(S.season || '')} squads`) + wrap('', `<div class="grid">${teams.map(x => `<a class="card" href="?t=${E(x.slug)}"><h3>${tname(x)}</h3><p>${lvl(x)}</p></a>`).join('')}</div>`);
     else {
       const mine = fx.filter(f => f.team === t.slug), c = comp(t);
-      h = head(tname(t) + 's', `${c ? 'Competitive' : 'Primary'} · ${E(club)} · ${E(S.season || '')}`) + wrap('',
+      h = head(tname(t) + (t.name ? '' : 's'), `${lvl(t)} · ${E(club)} · ${E(S.season || '')}`) + wrap('',
         `${t.img ? `<img class="tp" src="${U(t.img)}" alt="${tname(t)}">` : ''}${c && (t.gdFix || t.gdLadder) ? `<p>${t.gdFix ? `<a class="btn t" href="${U(t.gdFix)}">Fixtures and results on Game Day</a>` : ''}${t.gdLadder ? `<a class="btn k" href="${U(t.gdLadder)}">League table</a>` : ''}</p>` : ''}` +
         `<div class="two"><div><h2>Training</h2>${lines(t.sessions).map(l => { const [d, tm, loc] = l.split('|'); return `<div class="fx"><div><b>${E(d)} ${E(tm || '')}</b><small>${E(loc || '')}</small></div></div>`; }).join('') || `<p>${none('To be confirmed.')}</p>`}` +
-        `<h2>Match days</h2><div class="fx"><div><b>${E(t.playDay || 'To be confirmed')}</b><small>${E(t.playVenue || '')}</small></div></div><p class="muted">${E(S.defaultRule || '')}</p>` +
+        (play(t) ? `<h2>Match days</h2><div class="fx"><div><b>${E(t.playDay || 'To be confirmed')}</b><small>${E(t.playVenue || '')}</small></div></div><p class="muted">${E(S.defaultRule || '')}</p>` : `<p class="muted">${E(tname(t))} train only and do not play matches yet.</p>`) +
         `<h2>Coaches</h2><p class="pre">${E(t.coaches) || none('Not added yet.')}</p><h2>About</h2><p class="pre">${E(t.info) || none('Not added yet.')}</p></div>` +
-        `<div><h2>Fixtures</h2>${mine.filter(f => !has(f)).sort((a, b) => a.date < b.date ? -1 : 1).map(fxRow).join('') || '<p class="muted">None scheduled.</p>'}<h2>Results</h2>${mine.filter(has).sort((a, b) => a.date < b.date ? 1 : -1).map(fxRow).join('') || '<p class="muted">No results yet.</p>'}</div></div>`);
+        (play(t) ? `<div><h2>Fixtures</h2>${mine.filter(f => !has(f)).sort((a, b) => a.date < b.date ? -1 : 1).map(fxRow).join('') || '<p class="muted">None scheduled.</p>'}<h2>Results</h2>${mine.filter(has).sort((a, b) => a.date < b.date ? 1 : -1).map(fxRow).join('') || '<p class="muted">No results yet.</p>'}</div></div>` : '</div>'));
     }
   } else if (pg === 'fixtures') {
     const t = q.get('t'), f = a => a.filter(x => !t || x.team === t);
-    h = head('Fixtures and results', E(S.season || '')) + wrap('', `<p>${[['', 'All teams']].concat(teams.map(x => [x.slug, tname(x)])).map(([s, n]) => `<a class="btn ${s === (t || '') ? '' : 'w'}" style="${s === (t || '') ? '' : 'border:1px solid var(--line)'}" href="?t=${E(s)}">${E(n)}</a>`).join('')}</p><div class="two"><div><h2>Upcoming</h2>${f(up).map(fxRow).join('') || '<p class="muted">Nothing scheduled.</p>'}</div><div><h2>Results</h2>${f(res).map(fxRow).join('') || '<p class="muted">No results yet.</p>'}</div></div>`);
+    h = head('Fixtures and results', E(S.season || '')) + wrap('', `<p>${[['', 'All teams']].concat(teams.filter(play).map(x => [x.slug, tname(x)])).map(([s, n]) => `<a class="btn ${s === (t || '') ? '' : 'w'}" style="${s === (t || '') ? '' : 'border:1px solid var(--line)'}" href="?t=${E(s)}">${E(n)}</a>`).join('')}</p><div class="two"><div><h2>Upcoming</h2>${f(up).map(fxRow).join('') || '<p class="muted">Nothing scheduled.</p>'}</div><div><h2>Results</h2>${f(res).map(fxRow).join('') || '<p class="muted">No results yet.</p>'}</div></div>`);
   } else if (pg === 'news') {
     h = head('News') + wrap('', of('news').sort((a, b) => a.date < b.date ? 1 : -1).map(x => `<article style="margin-bottom:40px"><h2>${E(x.title)}</h2><p class="muted">${x.date ? dd(x.date) : ''}</p>${x.img ? `<img src="${U(x.img)}" alt="" style="margin-bottom:16px;border-radius:6px;max-height:420px">` : ''}<p class="pre">${E(x.body)}</p></article>`).join('') || '<p class="muted">No news yet.</p>');
   } else if (pg === 'documents' || pg === 'matchday') {

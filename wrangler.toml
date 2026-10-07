@@ -10,7 +10,7 @@ run_worker_first = ["/api/*", "/media/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "ackworthjaguarswebsite"
-database_id = "e1dfe06a-6c6c-451d-97d4-f475e3c504f2
+database_id = "e1dfe06a-6c6c-451d-97d4-f475e3c504f2"
 
 # Contact form email. Turn on Email Routing in Cloudflare first, then remove the # from the next two lines.
 # [[send_email]]
