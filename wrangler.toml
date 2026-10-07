@@ -7,6 +7,10 @@ directory = "./public"
 binding = "ASSETS"
 run_worker_first = ["/api/*", "/media/*"]
 
+# Reads Game Day at 1pm and 8pm UK time (runs at 12, 13, 19 and 20 UTC and skips the wrong ones)
+[triggers]
+crons = ["0 12,13,19,20 * * *"]
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ackworthjaguarswebsite"

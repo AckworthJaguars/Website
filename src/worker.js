@@ -1,4 +1,5 @@
 import { EmailMessage } from 'cloudflare:email';
+import { okUrl, parseLadder, parseFixtures } from './gameday.js';
 const E = new TextEncoder();
 const J = (o, s = 200, h = {}) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json', ...h } });
 const fail = (s, m) => { const e = new Error(m); e.s = s; throw e; };
@@ -45,6 +46,26 @@ async function mail(env, S, name, email, msg) {
     return true;
   } catch (e) { return false; }
 }
+async function getHtml(u) {
+  const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; AckworthJaguarsWebsite/1.0)', accept: 'text/html' } });
+  if (!r.ok) throw new Error('Game Day answered ' + r.status);
+  return r.text();
+}
+async function refreshGD(env) {
+  const db = env.DB, out = [];
+  const teams = (await db.prepare("SELECT data FROM items WHERE kind='team'").all()).results.map(r => JSON.parse(r.data));
+  for (const t of teams) {
+    if (!t.slug || (!t.gdFix && !t.gdLadder)) continue;
+    const name = t.name || 'U' + t.age, rec = { checked: Date.now() };
+    try {
+      if (t.gdLadder) { if (!okUrl(t.gdLadder)) throw new Error('table link must be a https://websites.mygameday.app link'); rec.ladder = parseLadder(await getHtml(t.gdLadder)); if (!rec.ladder) throw new Error('could not find the league table on that page'); }
+      if (t.gdFix) { if (!okUrl(t.gdFix)) throw new Error('fixtures link must be a https://websites.mygameday.app link'); rec.fixtures = parseFixtures(await getHtml(t.gdFix)); if (!rec.fixtures) throw new Error('could not find the fixtures on that page'); }
+      await db.prepare('INSERT OR REPLACE INTO kv VALUES(?,?)').bind('gd:' + t.slug, JSON.stringify(rec)).run();
+      out.push(`${name}: OK (${rec.ladder ? rec.ladder.rows.length + ' table rows' : 'no table'}, ${rec.fixtures ? rec.fixtures.length + ' fixtures' : 'no fixtures'})`);
+    } catch (e) { out.push(`${name}: not updated, ${e.message}`); }
+  }
+  return out.length ? out : ['No team has Game Day links yet'];
+}
 async function who(req, env) {
   const c = (req.headers.get('cookie') || '').match(/sid=([a-f0-9]{64})/);
   if (!c) return null;
@@ -67,8 +88,8 @@ async function route(req, env, p, m) {
     return res;
   }
   if (p === '/api/public') {
-    const [s, r] = await Promise.all([db.prepare("SELECT v FROM kv WHERE k='settings'").first(), db.prepare('SELECT id,kind,sort,data FROM items ORDER BY sort').all()]);
-    return J({ settings: s ? JSON.parse(s.v) : {}, items: r.results.map(x => ({ ...JSON.parse(x.data), id: x.id, kind: x.kind, sort: x.sort })) }, 200, { 'cache-control': 'public,max-age=30' });
+    const [s, r, g] = await Promise.all([db.prepare("SELECT v FROM kv WHERE k='settings'").first(), db.prepare('SELECT id,kind,sort,data FROM items ORDER BY sort').all(), db.prepare("SELECT k,v FROM kv WHERE k LIKE 'gd:%'").all()]);
+    return J({ settings: s ? JSON.parse(s.v) : {}, gd: Object.fromEntries(g.results.map(x => [x.k.slice(3), JSON.parse(x.v)])), items: r.results.map(x => ({ ...JSON.parse(x.data), id: x.id, kind: x.kind, sort: x.sort })) }, 200, { 'cache-control': 'public,max-age=30' });
   }
   const me = await who(req, env);
   if (p === '/api/me') { const c = await db.prepare('SELECT COUNT(*) c FROM users').first(); return J(c.c ? { user: me } : { setup: true }); }
@@ -147,6 +168,7 @@ async function route(req, env, p, m) {
   if (p === '/api/messages' && m === 'GET') { need(me, 'admin editor'); return J((await db.prepare('SELECT * FROM messages ORDER BY ts DESC LIMIT 100').all()).results); }
   x = p.match(/^\/api\/messages\/(\d+)$/);
   if (x && m === 'DELETE') { need(me, 'admin editor'); await db.prepare('DELETE FROM messages WHERE id=?').bind(x[1]).run(); return J({ ok: 1 }); }
+  if (p === '/api/gameday/refresh' && m === 'POST') { need(me, 'admin editor'); return J({ results: await refreshGD(env) }); }
   if (p === '/api/settings' && m === 'PUT') {
     need(me, 'admin');
     await db.prepare("INSERT OR REPLACE INTO kv VALUES('settings',?)").bind(JSON.stringify(b)).run();
@@ -174,5 +196,9 @@ export default {
   async fetch(req, env) {
     try { return await route(req, env, new URL(req.url).pathname, req.method); }
     catch (e) { return J({ error: e.s ? e.message : 'Server error' }, e.s || 500); }
+  },
+  async scheduled(ev, env, ctx) {
+    const h = +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Europe/London' }).format(new Date(ev.scheduledTime));
+    if (h === 13 || h === 20) ctx.waitUntil(refreshGD(env));
   }
 };

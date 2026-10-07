@@ -37,3 +37,9 @@ Every message is saved in the portal under Messages. To also get it by email, an
 
 ## New season
 Teams > Move all teams up one age group. Everything stays with the squad. Add your new youngest team.
+
+## Game Day league table and fixtures
+For each competitive team, paste the two Game Day links into Teams > Edit:
+- Game Day fixtures and results link: the team's "Season Fixture" page (a=SFIX)
+- Game Day league table link: the team's "Ladders" page (a=LADDER)
+Links must start with https://websites.mygameday.app. The site reads them at 1pm and 8pm UK time every day and shows the table and fixtures in the site's own styling, with the time it was last updated. Teams > "Refresh Game Day data now" does it straight away and reports what it found. If Game Day can't be read, the last good copy stays on the site.
