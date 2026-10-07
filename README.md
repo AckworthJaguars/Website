@@ -51,3 +51,9 @@ DELETE FROM sessions;
 DELETE FROM users;
 DELETE FROM kv WHERE k LIKE 'f:%';
 ```
+
+## Extra pages (for example a Club Shop)
+Portal > Extra pages. Choose "Link to another website" (the menu item opens that address in a new tab, and /go/your-page-name also redirects there) or "Page with text" (title, text and a picture, shown at /p/your-page-name). Tick "Show in menu" or hide it.
+
+## Adding users
+Portal > Users > Invite a user. You get a private link to send them. They choose their own password and scan their own authenticator QR code. The link works once, for 7 days. "Reset login" makes a new link the same way.

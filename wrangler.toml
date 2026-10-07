@@ -5,7 +5,7 @@ compatibility_date = "2026-09-10"
 [assets]
 directory = "./public"
 binding = "ASSETS"
-run_worker_first = ["/api/*", "/media/*"]
+run_worker_first = ["/api/*", "/media/*", "/go/*", "/p/*"]
 
 # Reads Game Day at 1pm and 8pm UK time (runs at 12, 13, 19 and 20 UTC and skips the wrong ones)
 [triggers]

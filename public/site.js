@@ -3,11 +3,12 @@ const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 const U = u => /^(https?:\/\/|\/|mailto:)/.test(u || '') ? E(u) : '#';
 const fd = d => new Date(d).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const dd = d => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-const NAV = [['teams', 'Teams'], ['fixtures', 'Fixtures'], ['news', 'News'], ['matchday', 'Match day'], ['documents', 'Documents'], ['volunteers', 'Volunteers'], ['committee', 'Committee'], ['sponsors', 'Sponsors'], ['contact', 'Contact']];
+const NAV = [['teams', 'Teams'], ['fixtures', 'Fixtures'], ['news', 'News'], ['matchday', 'Match day'], ['documents', 'Documents'], ['contact', 'Contact']];
+const MORE = [['volunteers', 'Volunteers'], ['committee', 'Committee'], ['sponsors', 'Sponsors']];
 const q = new URLSearchParams(location.search);
 
 fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); return r.json(); }).then(({ settings: S, items: I, gd: GD = {} }) => {
-  const of = k => I.filter(x => x.kind === k), teams = of('team'), pg = document.body.dataset.page;
+  const of = k => I.filter(x => x.kind === k), teams = of('team'), pages = of('page'), pg = document.body.dataset.page;
   const tname = t => t.name || 'U' + t.age, lvl = t => t.type && t.type !== 'Auto (by age)' ? t.type : (+t.age >= +(S.compAge || 12) ? 'Competitive' : 'Primary'), comp = t => lvl(t) === 'Competitive', play = t => lvl(t) !== 'Training only';
   const tn = s => { const t = teams.find(x => x.slug === s); return t ? tname(t) : s; };
   const has = f => f.us !== '' && f.us != null && f.them !== '' && f.them != null;
@@ -27,9 +28,17 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
   const none = t => `<span class="muted">${t}</span>`;
   const soc = [['facebook', 'Facebook'], ['instagram', 'Instagram'], ['youtube', 'YouTube'], ['messenger', 'Messenger']].filter(([k]) => S[k]).map(([k, l]) => `<a href="${U(S[k])}">${l}</a>`).join('');
 
-  $('#hdr').innerHTML = `<div class="wrap nav"><a class="brand" href="/"><img src="${U(S.logo || '/assets/logo.png')}" alt=""><span>${E(club)}</span></a><nav id="nv">${NAV.map(([h, l]) => `<a href="/${h}.html" class="${pg === h ? 'on' : ''}">${l}</a>`).join('')}</nav><a class="join" href="/join.html">Join the Jags</a><button id="tg" aria-label="Menu">☰</button></div>`;
+  const extra = pages.filter(x => x.menu !== 'Hide from menu').map(x => x.type === 'Page with text' ? ['/p/' + x.slug, x.title, 0] : [x.url, x.title, 1]);
+  const xl = extra.map(([u, l, ext]) => `<a href="${U(u)}"${ext ? ' target="_blank" rel="noopener"' : ''} class="${!ext && location.pathname === u ? 'on' : ''}">${E(l)}</a>`).join('');
+  const lk = ([h, l]) => `<a href="/${h}.html" class="${pg === h ? 'on' : ''}">${l}</a>`;
+  const paras = s => String(s || '').split(/\n{2,}/).filter(Boolean).map(x => `<p class="pre">${E(x).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>')}</p>`).join('');
+  $('#hdr').innerHTML = `<div class="wrap nav"><a class="brand" href="/"><img src="${U(S.logo || '/assets/logo.png')}" alt=""><span>${E(club)}</span></a><nav id="nv">${NAV.map(lk).join('')}${xl}<div class="dd${MORE.some(([h]) => h === pg) ? ' on' : ''}"><button type="button" id="mr">More ▾</button><div class="ddm">${MORE.map(lk).join('')}</div></div></nav><a class="join" href="/join.html">Join the Jags</a><button id="tg" aria-label="Menu">☰</button></div>`;
+  $('#mr').onclick = e => { e.stopPropagation(); $('.dd').classList.toggle('open'); };
+  document.addEventListener('click', () => $('.dd').classList.remove('open'));
   $('#tg').onclick = () => $('#nv').classList.toggle('open');
-  $('#ftr').innerHTML = `<div class="wrap"><div class="fg"><div><h3>${E(club)}</h3><p>${E(S.hero || '')}</p></div><div><h3>Find us</h3><p class="pre">${E(S.address)}</p></div><div><h3>Follow</h3>${soc}${S.email ? `<a href="mailto:${E(S.email)}">${E(S.email)}</a>` : ''}</div><div><h3>Club</h3><a href="/documents.html">Documents</a><a href="/matchday.html">Match day</a><a href="/contact.html">Contact</a><a href="/admin/">Club login</a></div></div><small>© ${new Date().getFullYear()} ${E(club)} · ${E(S.season || '')}</small></div>`;
+  const fit = () => { const hd = $('#hdr'); hd.classList.remove('burger'); $('#nv').classList.remove('open'); if (hd.offsetHeight > 90) hd.classList.add('burger'); };
+  fit(); addEventListener('resize', fit); if (document.fonts) document.fonts.ready.then(fit);
+  $('#ftr').innerHTML = `<div class="wrap"><div class="fg"><div><h3>${E(club)}</h3><p>${E(S.hero || '')}</p></div><div><h3>Find us</h3><p class="pre">${E(S.address)}</p></div><div><h3>Follow</h3>${soc}${S.email ? `<a href="mailto:${E(S.email)}">${E(S.email)}</a>` : ''}</div><div><h3>Club</h3><a href="/documents.html">Documents</a><a href="/matchday.html">Match day</a><a href="/contact.html">Contact</a>${xl}<a href="/admin/">Club login</a></div></div><small>© ${new Date().getFullYear()} ${E(club)} · ${E(S.season || '')}</small></div>`;
 
   const ladder = l => { const opt = l.head.map(x => /^(for|agst)$/i.test(x) ? ' class="opt"' : ''); return `<div class="lw"><table class="lt"><thead><tr>${l.head.map((x, i) => `<th${opt[i]}>${E(x)}</th>`).join('')}</tr></thead><tbody>${l.rows.map(r => `<tr class="${/ackworth/i.test(r[1]) ? 'us' : ''}">${r.map((c, i) => `<td${opt[i]}>${E(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; };
   const gdBand = t => { const g = GD[t.slug]; if (!g || !g.ladder) return ''; return wrap('grey', `<h2>League table</h2>${ladder(g.ladder)}<p class="muted" style="margin-top:12px">Last updated ${new Date(g.checked).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}${g.ladder.uploaded ? ' · Game Day table last uploaded ' + E(g.ladder.uploaded) : ''} · Data from GameDay</p>`); };
@@ -74,6 +83,11 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
     h = head('Sponsors', 'Thank you to the businesses who support the Jaguars.') + wrap('', `<div class="logos">${of('sponsor').map(s => `<a href="${U(s.url)}"><img src="${U(s.logo)}" alt="${E(s.name)}"></a>`).join('') || '<p class="muted">No sponsors added yet.</p>'}</div>`);
   } else if (pg === 'join') {
     h = head('Join the Jags', 'New to the club? Here is how to get started.') + wrap('', `<div class="grid">${lines(S.joinText).map((l, i) => `<div class="card"><h3>${i + 1}</h3><p>${E(l)}</p></div>`).join('')}</div><p style="margin-top:24px">${S.joinUrl ? `<a class="btn" href="${U(S.joinUrl)}">Become a Jaguar</a>` : ''}</p>`);
+  } else if (pg === 'page') {
+    const slug = decodeURIComponent(location.pathname.split('/')[2] || ''), x = pages.find(y => y.slug === slug);
+    if (!x) h = head('Page not found') + wrap('', '<p>Sorry, we could not find that page.</p>');
+    else if (x.type !== 'Page with text') { h = head(E(x.title)) + wrap('', `<p><a class="btn" href="${U(x.url)}">Continue to ${E(x.title)}</a></p>`); if (/^https?:\/\//.test(x.url || '')) location.replace(x.url); }
+    else { document.title = x.title + ' | ' + club; h = head(E(x.title)) + wrap('', `${x.img ? `<img class="tp" src="${U(x.img)}" alt="">` : ''}${paras(x.body)}`); }
   } else if (pg === 'contact') {
     h = head('Contact us', E(S.contactIntro || 'Send us a message and we will get back to you.')) + wrap('', `<div class="two"><form class="cf" id="cf"><label>Your name<input name="name" required maxlength="100"></label><label>Your email<input name="email" type="email" required></label><label>Message<textarea name="message" rows="6" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>${S.turnstile ? `<div class="cf-turnstile" data-sitekey="${E(S.turnstile)}"></div>` : ''}<p id="cm" style="font-weight:600"></p><button class="btn" type="submit">Send message</button></form><div><h2>Find us</h2><p class="pre">${E(S.address)}</p>${S.map ? `<a class="btn" href="${U(S.map)}">Open in Google Maps</a>` : ''}</div></div>`);
   }

@@ -5,7 +5,7 @@ const J = (o, s = 200, h = {}) => new Response(JSON.stringify(o), { status: s, h
 const fail = (s, m) => { const e = new Error(m); e.s = s; throw e; };
 const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 const rnd = n => hex(crypto.getRandomValues(new Uint8Array(n)));
-const R = { fixture: 'admin editor coach', news: 'admin editor coach', team: 'admin editor', doc: 'admin editor', sponsor: 'admin editor', member: 'admin editor', role: 'admin editor' };
+const R = { fixture: 'admin editor coach', news: 'admin editor coach', team: 'admin editor', doc: 'admin editor', sponsor: 'admin editor', member: 'admin editor', role: 'admin editor', page: 'admin editor' };
 const OK = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 const need = (me, roles) => { if (!me) fail(401, 'Please log in'); if (!roles || !roles.split(' ').includes(me.role)) fail(403, 'Your account cannot do that'); };
 
@@ -74,6 +74,13 @@ async function who(req, env) {
 
 async function route(req, env, p, m) {
   const db = env.DB;
+  if (p.startsWith('/p/')) return env.ASSETS.fetch(new Request(new URL('/page', req.url)));
+  if (p.startsWith('/go/')) {
+    const slug = decodeURIComponent(p.slice(4)), rows = (await db.prepare("SELECT data FROM items WHERE kind='page'").all()).results.map(r => JSON.parse(r.data));
+    const pg = rows.find(x => x.slug === slug);
+    if (pg && pg.type !== 'Page with text' && /^https?:\/\//.test(pg.url || '')) return Response.redirect(pg.url, 302);
+    return new Response('Not found', { status: 404 });
+  }
   if (p.startsWith('/media/')) {
     const id = decodeURIComponent(p.slice(7)), ck = new Request(req.url);
     const hit = await caches.default.match(ck); if (hit) return hit;
@@ -169,6 +176,43 @@ async function route(req, env, p, m) {
   x = p.match(/^\/api\/messages\/(\d+)$/);
   if (x && m === 'DELETE') { need(me, 'admin editor'); await db.prepare('DELETE FROM messages WHERE id=?').bind(x[1]).run(); return J({ ok: 1 }); }
   if (p === '/api/gameday/refresh' && m === 'POST') { need(me, 'admin editor'); return J({ results: await refreshGD(env) }); }
+  if (p === '/api/invites' && m === 'POST') {
+    need(me, 'admin');
+    const un = String(b.username || '').toLowerCase();
+    if (!/^[a-z0-9._-]{3,30}$/.test(un)) fail(400, 'Username must be 3 to 30 letters, numbers, dots or dashes');
+    if (!['admin', 'editor', 'coach'].includes(b.role)) fail(400, 'Choose a level');
+    if (await db.prepare('SELECT 1 FROM users WHERE username=?').bind(un).first()) fail(409, 'That username is taken');
+    const token = rnd(24);
+    await db.prepare('INSERT INTO invites VALUES(?,?,?,?,?)').bind(token, un, b.role, null, Date.now() + 6048e5).run();
+    return J({ token });
+  }
+  x = p.match(/^\/api\/users\/(\d+)\/invite$/);
+  if (x && m === 'POST') {
+    need(me, 'admin');
+    const u = await db.prepare('SELECT id,username,role FROM users WHERE id=?').bind(x[1]).first();
+    if (!u) fail(404, 'Not found');
+    const token = rnd(24);
+    await db.prepare('INSERT INTO invites VALUES(?,?,?,?,?)').bind(token, u.username, u.role, u.id, Date.now() + 6048e5).run();
+    return J({ token });
+  }
+  x = p.match(/^\/api\/invite\/([a-f0-9]{48})$/);
+  if (x) {
+    const inv = await db.prepare('SELECT * FROM invites WHERE token=? AND exp>?').bind(x[1], Date.now()).first();
+    if (!inv) fail(404, 'This invite link has expired or was already used. Ask for a new one.');
+    if (m === 'GET') return J({ username: inv.username, reset: !!inv.uid });
+    if (m === 'POST') {
+      let r;
+      if (inv.uid) {
+        if (String(b.password || '').length < 10) fail(400, 'Password must be at least 10 characters');
+        const salt = rnd(16), secret = newSecret();
+        await db.prepare('UPDATE users SET pass=?,salt=?,totp=? WHERE id=?').bind(await hash(b.password, salt), salt, secret, inv.uid).run();
+        await db.prepare('DELETE FROM sessions WHERE uid=?').bind(inv.uid).run();
+        r = { username: inv.username, secret };
+      } else r = await mk(db, inv.username, b.password, inv.role);
+      await db.prepare('DELETE FROM invites WHERE token=?').bind(x[1]).run();
+      return J(r);
+    }
+  }
   if (p === '/api/settings' && m === 'PUT') {
     need(me, 'admin');
     await db.prepare("INSERT OR REPLACE INTO kv VALUES('settings',?)").bind(JSON.stringify(b)).run();
