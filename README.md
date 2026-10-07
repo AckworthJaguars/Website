@@ -62,3 +62,12 @@ Portal > Users > Invite a user. You get a private link to send them. They choose
 - "This week" lists every fixture for every team from Monday to Sunday of the current week, grouped by day. On Monday it moves on to the new week.
 - Primary and Mini Jags fixtures show no scores. Competitive teams (U12 and up by default) show scores and a Win, Draw or Loss badge, and get their league table and latest result on the home page.
 - Primary team fixtures are typed in under Fixtures and results in the portal. Competitive teams come from Game Day.
+
+## Fixtures from a calendar (primary teams, or anyone without Game Day)
+Teams > Edit > "Calendar feed link for fixtures". Paste an .ics or webcal link; the site reads it at 1pm and 8pm UK time with the Game Day data. Optional box: only use events whose title contains a word (for example "match"), so training sessions are left out. Events that repeat (like weekly training) and cancelled events are skipped. Treat a secret calendar link like a password.
+
+One way to get a feed from Spond (Spond has no public feed of its own): on a phone with the Spond app, use Settings > Calendar Settings to send each team's group to its own Google Calendar. In Google Calendar on a computer, open that calendar's settings > Integrate calendar > copy "Secret address in iCal format".
+
+## Events page and homepage photo
+- Events lists everything coming up. Teams with a calendar feed show all their calendar events (training, matches, socials); other teams show their fixtures.
+- Settings > Homepage photo: upload a good, wide photo. "Blue tint over the homepage photo" sets how strongly blue covers it (25 is the default). With no photo the homepage hero is plain blue.

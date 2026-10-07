@@ -33,3 +33,36 @@ export function parseFixtures(html) {
   }
   return out.length ? out : null;
 }
+
+export const okFeedUrl = u => { try { const x = new URL(u); return x.protocol === 'https:' && !/^(localhost$|\d+\.\d+\.\d+\.\d+$|\[)/.test(x.hostname); } catch { return false; } };
+
+const london = d => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+};
+const unesc = s => String(s || '').replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').trim();
+
+export function parseIcs(text, filter = '', now = Date.now()) {
+  const lines = String(text).replace(/\r?\n[ \t]/g, '').split(/\r?\n/);
+  const evs = []; let cur = null;
+  for (const ln of lines) {
+    if (ln === 'BEGIN:VEVENT') cur = {};
+    else if (ln === 'END:VEVENT') { if (cur) evs.push(cur); cur = null; }
+    else if (cur) { const i = ln.indexOf(':'); if (i > 0) cur[ln.slice(0, i).split(';')[0].toUpperCase()] = ln.slice(i + 1); }
+  }
+  const f = String(filter || '').trim().toLowerCase(), out = [];
+  for (const e of evs) {
+    if (e.RRULE || /^cancel/i.test(e.STATUS || '') || !e.DTSTART) continue;
+    const s = e.DTSTART.trim(), title = unesc(e.SUMMARY);
+    if (f && !title.toLowerCase().includes(f)) continue;
+    let date;
+    if (/^\d{8}$/.test(s)) date = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T00:00`;
+    else if (/^\d{8}T\d{6}Z$/.test(s)) date = london(new Date(Date.UTC(+s.slice(0, 4), +s.slice(4, 6) - 1, +s.slice(6, 8), +s.slice(9, 11), +s.slice(11, 13))));
+    else if (/^\d{8}T\d{4}/.test(s)) date = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}`;
+    else continue;
+    const t = new Date(date).getTime();
+    if (t < now - 30 * 864e5 || t > now + 150 * 864e5) continue;
+    out.push({ rnd: '', date, venue: unesc(e.LOCATION), us: '', opp: '', them: '', title });
+  }
+  return out.sort((a, b) => a.date < b.date ? -1 : 1);
+}

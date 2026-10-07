@@ -1,5 +1,5 @@
 import { EmailMessage } from 'cloudflare:email';
-import { okUrl, parseLadder, parseFixtures } from './gameday.js';
+import { okUrl, okFeedUrl, parseLadder, parseFixtures, parseIcs } from './gameday.js';
 const E = new TextEncoder();
 const J = (o, s = 200, h = {}) => new Response(JSON.stringify(o), { status: s, headers: { 'content-type': 'application/json', ...h } });
 const fail = (s, m) => { const e = new Error(m); e.s = s; throw e; };
@@ -47,7 +47,7 @@ async function mail(env, S, name, email, msg) {
   } catch (e) { return false; }
 }
 async function getHtml(u) {
-  const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; AckworthJaguarsWebsite/1.0)', accept: 'text/html' } });
+  const r = await fetch(u, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; AckworthJaguarsWebsite/1.0)', accept: 'text/html,text/calendar,*/*' } });
   if (!r.ok) throw new Error('Game Day answered ' + r.status);
   return r.text();
 }
@@ -55,13 +55,21 @@ async function refreshGD(env) {
   const db = env.DB, out = [];
   const teams = (await db.prepare("SELECT data FROM items WHERE kind='team'").all()).results.map(r => JSON.parse(r.data));
   for (const t of teams) {
-    if (!t.slug || (!t.gdFix && !t.gdLadder)) continue;
+    if (!t.slug || (!t.gdFix && !t.gdLadder && !t.icalUrl)) continue;
     const name = t.name || 'U' + t.age, rec = { checked: Date.now() };
     try {
       if (t.gdLadder) { if (!okUrl(t.gdLadder)) throw new Error('table link must be a https://websites.mygameday.app link'); rec.ladder = parseLadder(await getHtml(t.gdLadder)); if (!rec.ladder) throw new Error('could not find the league table on that page'); }
       if (t.gdFix) { if (!okUrl(t.gdFix)) throw new Error('fixtures link must be a https://websites.mygameday.app link'); rec.fixtures = parseFixtures(await getHtml(t.gdFix)); if (!rec.fixtures) throw new Error('could not find the fixtures on that page'); }
+      if (!t.gdFix && t.icalUrl) {
+        const u = t.icalUrl.trim().replace(/^webcal:/i, 'https:');
+        if (!okFeedUrl(u)) throw new Error('calendar link must start with https:// or webcal://');
+        const all = parseIcs(await getHtml(u), '').slice(0, 150), fl = String(t.icalFilter || '').trim().toLowerCase();
+        rec.events = all;
+        rec.fixtures = fl ? all.filter(e => e.title.toLowerCase().includes(fl)) : all;
+        if (!all.length) throw new Error('no upcoming events found in that calendar');
+      }
       await db.prepare('INSERT OR REPLACE INTO kv VALUES(?,?)').bind('gd:' + t.slug, JSON.stringify(rec)).run();
-      out.push(`${name}: OK (${rec.ladder ? rec.ladder.rows.length + ' table rows' : 'no table'}, ${rec.fixtures ? rec.fixtures.length + ' fixtures' : 'no fixtures'})`);
+      out.push(`${name}: OK (${rec.ladder ? rec.ladder.rows.length + ' table rows, ' : ''}${rec.fixtures ? rec.fixtures.length + ' fixtures' : 'no fixtures'}${rec.events ? ', ' + rec.events.length + ' calendar events' : ''})`);
     } catch (e) { out.push(`${name}: not updated, ${e.message}`); }
   }
   return out.length ? out : ['No team has Game Day links yet'];

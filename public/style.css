@@ -37,8 +37,8 @@ pre{font:inherit;white-space:pre-wrap;margin:0}
 
 .join{background:var(--black);color:#fff;padding:9px 16px;border-radius:6px;font-weight:700;text-decoration:none;white-space:nowrap}
 nav a{padding:7px 9px;font-size:14px}
-@media(min-width:1301px){#tg{display:none!important}}
-@media(max-width:1300px){#tg{display:block}nav{display:none;order:5;width:100%;flex-direction:column;align-items:stretch;padding-bottom:12px}nav.open{display:flex}}
+@media(min-width:1001px){#tg{display:none!important}}
+@media(max-width:1000px){#tg{display:block}nav{display:none;order:5;width:100%;flex-direction:column;align-items:stretch;padding-bottom:12px}nav.open{display:flex}}
 @media(max-width:520px){.brand span{display:none}}
 .hero{background:var(--blue) center/cover}
 .tp{width:100%;max-height:340px;object-fit:cover;border-radius:6px;margin-bottom:20px}
@@ -71,5 +71,10 @@ header.burger nav.open{display:flex}
 .dd>button:hover,.dd.open>button,.dd.on>button{background:var(--grey)}
 .ddm{display:none;position:absolute;right:0;top:100%;background:#fff;border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,.12);min-width:180px;padding:6px;z-index:30}
 .dd.open .ddm{display:block}.ddm a{display:block}
-@media(max-width:1300px){.dd>button{display:none}.ddm{display:block;position:static;border:0;box-shadow:none;padding:0}}
+@media(max-width:1000px){.dd>button{display:none}.ddm{display:block;position:static;border:0;box-shadow:none;padding:0}}
 header.burger .dd>button{display:none}header.burger .ddm{display:block;position:static;border:0;box-shadow:none;padding:0}
+
+.nobrand .brand span{display:none}
+nav a{padding:7px 8px}
+.hero{color:#fff}
+.hero[style] h1,.hero[style] p{text-shadow:0 2px 14px rgba(0,0,0,.6)}
