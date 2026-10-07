@@ -57,3 +57,8 @@ Portal > Extra pages. Choose "Link to another website" (the menu item opens that
 
 ## Adding users
 Portal > Users > Invite a user. You get a private link to send them. They choose their own password and scan their own authenticator QR code. The link works once, for 7 days. "Reset login" makes a new link the same way.
+
+## Home page
+- "This week" lists every fixture for every team from Monday to Sunday of the current week, grouped by day. On Monday it moves on to the new week.
+- Primary and Mini Jags fixtures show no scores. Competitive teams (U12 and up by default) show scores and a Win, Draw or Loss badge, and get their league table and latest result on the home page.
+- Primary team fixtures are typed in under Fixtures and results in the portal. Competitive teams come from Game Day.
