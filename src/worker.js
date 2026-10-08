@@ -104,7 +104,7 @@ async function route(req, env, p, m) {
   }
   if (p === '/api/public') {
     const [s, r, g] = await Promise.all([db.prepare("SELECT v FROM kv WHERE k='settings'").first(), db.prepare('SELECT id,kind,sort,data FROM items ORDER BY sort').all(), db.prepare("SELECT k,v FROM kv WHERE k LIKE 'gd:%'").all()]);
-    return J({ settings: s ? JSON.parse(s.v) : {}, gd: Object.fromEntries(g.results.map(x => [x.k.slice(3), JSON.parse(x.v)])), items: r.results.map(x => ({ ...JSON.parse(x.data), id: x.id, kind: x.kind, sort: x.sort })) }, 200, { 'cache-control': 'public,max-age=30' });
+    return J({ settings: s ? JSON.parse(s.v) : {}, gd: Object.fromEntries(g.results.map(x => [x.k.slice(3), JSON.parse(x.v)])), items: r.results.map(x => { const d = JSON.parse(x.data); delete d.icalUrl; return { ...d, id: x.id, kind: x.kind, sort: x.sort }; }) }, 200, { 'cache-control': 'public,max-age=30' });
   }
   const me = await who(req, env);
   if (p === '/api/me') { const c = await db.prepare('SELECT COUNT(*) c FROM users').first(); return J(c.c ? { user: me } : { setup: true }); }
@@ -165,6 +165,11 @@ async function route(req, env, p, m) {
     return J({ ok: 1 }, 200, { 'set-cookie': 'sid=; Path=/; Max-Age=0' });
   }
 
+  if (p === '/api/items' && m === 'GET') {
+    need(me, 'admin editor coach');
+    const keep = me.role !== 'coach';
+    return J((await db.prepare('SELECT id,kind,sort,data FROM items ORDER BY sort').all()).results.map(x => { const d = JSON.parse(x.data); if (!keep) delete d.icalUrl; return { ...d, id: x.id, kind: x.kind, sort: x.sort }; }));
+  }
   if (p === '/api/items' && m === 'POST') {
     need(me, R[b.kind]);
     const d = JSON.stringify(b.data || {}); if (d.length > 30000) fail(400, 'Too much text');
