@@ -62,7 +62,25 @@ export function parseIcs(text, filter = '', now = Date.now()) {
     else continue;
     const t = new Date(date).getTime();
     if (t < now - 30 * 864e5 || t > now + 150 * 864e5) continue;
-    out.push({ rnd: '', date, venue: unesc(e.LOCATION), us: '', opp: '', them: '', title });
+    out.push({ rnd: '', date, venue: unesc(e.LOCATION), us: '', opp: '', them: '', title, desc: unesc(e.DESCRIPTION) });
   }
   return out.sort((a, b) => a.date < b.date ? -1 : 1);
+}
+
+// Matches only: the title has two team names split by a dash, for example "Heworth U10 – Ackworth Jaguars U10s".
+// Training and other events have no dash and are ignored. The end time is not used.
+export function parseMatches(text, now = Date.now()) {
+  const out = [];
+  for (const e of parseIcs(text, '', now)) {
+    const mm = e.title.match(/^(.*?)\s[–—-]\s(.*)$/);
+    if (!mm) continue;
+    const a = mm[1].trim(), b = mm[2].trim(), isUs = s => /ackworth|jaguar|jags/i.test(s), usA = isUs(a), usB = isUs(b);
+    if (!usA && !usB) continue;
+    let home = usA && !usB ? true : usB && !usA ? false : undefined, neutral;
+    const d = e.desc || '', w = d.match(/\b(home|away|neutral)\s+(?:game|match|fixture)\b/i) || (d.length <= 40 ? d.match(/\b(home|away|neutral)\b/i) : null);
+    if (w) { const k = w[1].toLowerCase(); if (k === 'neutral') { neutral = true; home = undefined; } else home = k === 'home'; }
+    const ours = usB && !usA ? b : a, age = (ours.match(/\bu(?:nder)?\s*-?\s*(\d{1,2})/i) || [])[1] || '';
+    out.push({ rnd: '', date: e.date, venue: e.venue, loc: e.venue, home, neutral, us: '', them: '', opp: (usB && !usA ? a : b), age });
+  }
+  return out;
 }
