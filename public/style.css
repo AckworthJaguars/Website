@@ -78,3 +78,10 @@ header.burger .dd>button{display:none}header.burger .ddm{display:block;position:
 nav a{padding:7px 8px}
 .hero{color:#fff}
 .hero[style] h1,.hero[style] p{text-shadow:0 2px 14px rgba(0,0,0,.6)}
+
+h4{font:700 13px Inter,sans-serif;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:18px 0 6px}
+.tick{list-style:none;padding:0;margin:0 0 12px}.tick li{position:relative;padding:8px 0 8px 32px;border-bottom:1px solid var(--line)}
+.tick li::before{position:absolute;left:0;top:8px;font-weight:800;font-size:18px}
+.tick.yes li::before{content:"\2713";color:color-mix(in srgb,var(--teal) 80%,#000)}.tick.no li::before{content:"\2715";color:#b3261e}
+.tm{margin-bottom:20px;cursor:default}.tm:hover{border-color:var(--line)}.tm h3{margin-bottom:0}
+@media print{header,footer,.noprint,#tg{display:none!important}body{color:#000;font-size:12pt}.band{padding:14px 0}.blue,.grey,.dark,.hero{background:#fff!important}.blue *{color:#000!important;text-shadow:none!important}.fx,.card,.doc,.tick li{break-inside:avoid}h1{font-size:34pt}h2{font-size:22pt}}

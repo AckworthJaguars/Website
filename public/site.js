@@ -46,6 +46,25 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
   const stamp = g => `<p class="muted" style="margin-top:12px">Last updated ${new Date(g.checked).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}${g.ladder.uploaded ? ' · Game Day table last uploaded ' + E(g.ladder.uploaded) : ''} · Data from GameDay</p>`;
   const gdBlock = (t, title) => { const g = GD[t.slug]; return g && g.ladder ? `<h2>${title}</h2>${ladder(g.ladder)}${stamp(g)}` : ''; };
   const gdBand = t => { const b = gdBlock(t, 'League table'); return b ? wrap('', b) : ''; };
+  const matchDay = docs => {
+    const dv = (k, d) => S[k] === undefined ? d : S[k], tsel = q.get('t');
+    const welcome = dv('visitorWelcome', 'Welcome to Jaguar Park. Everything visiting teams and families need for match day is on this page. Please share it with your team.');
+    const park = lines(dv('parking', 'Visiting teams, please park in the away car park (see the what3words location below).')), nopark = lines(dv('noParking', ''));
+    const doList = lines(dv('sidelineDo', '')), dontList = lines(dv('sidelineDont', 'No smoking\nNo vaping\nNo alcohol'));
+    const tuck = dv('tuckShop', 'Hot and cold drinks and a large range of savoury and sweet snacks. We accept cash or card.');
+    const ul = (a, c) => a.length ? `<ul class="tick ${c}">${a.map(x => `<li>${E(x)}</li>`).join('')}</ul>` : '';
+    const vols = t => { const v = lines(t.volunteers).map(l => l.split('|')); if (comp(t) && !v.some(r => /water/i.test(r[0]))) v.push(['Water Carrier', '']); return v.map(([r, n]) => `<div class="fx"><div><b>${E(r)}</b><small>${E(n) || 'To be confirmed'}</small></div></div>`).join(''); };
+    const sec = t => `<div class="card tm" id="${E(t.slug)}"><h3>${tname(t)}</h3><div class="two"><div><h4>After the match</h4><p>${E(t.afterMatch) || none('To be confirmed.')}</p>${t.afterMatchLink ? `<p class="noprint"><a class="btn k" href="${U(t.afterMatchLink)}">Map</a></p>` : ''}${t.playDay ? `<h4>Usual match day</h4><p>${E(t.playDay)}${t.playVenue ? ' · ' + E(t.playVenue) : ''}</p>` : ''}</div><div><h4>Coaches</h4><p class="pre">${E(t.coaches) || none('Not added yet.')}</p><h4>Volunteers</h4>${vols(t) || none('Not added yet.')}</div></div></div>`;
+    const tl = teams.filter(play), shown = tl.filter(x => !tsel || x.slug === tsel);
+    const mail = 'mailto:?subject=' + encodeURIComponent('Match day information: ' + club) + '&body=' + encodeURIComponent('Match day information for visiting teams and families: ' + location.href);
+    const side = [doList.length ? `<h4>You can</h4>${ul(doList, 'yes')}` : '', dontList.length ? `<h4>Please do not</h4>${ul(dontList, 'no')}` : ''].filter(Boolean);
+    return wrap('blue', `<h1>Match day</h1><p>${E(welcome)}</p><p class="noprint"><button class="btn w" id="cp" type="button">Copy link to share</button><a class="btn w" href="${mail}">Email this page</a><button class="btn w" id="pr" type="button">Print or save as PDF</button></p>`) +
+      wrap('', `<div class="two"><div><h2>Find us</h2><p class="pre">${E(S.address)}</p>${S.map ? `<p class="noprint"><a class="btn" href="${U(S.map)}">Open in Google Maps</a></p>` : ''}${lines(S.w3w).map(l => { const [a, b] = l.split('|'); return `<a class="doc" href="https://what3words.com/${E(b)}">${E(a)}<small>///${E(b)}</small></a>`; }).join('')}</div><div><h2>Parking</h2>${park.length ? `<h4>Please park</h4>${ul(park, 'yes')}` : ''}${nopark.length ? `<h4>Please do not park</h4>${ul(nopark, 'no')}` : ''}${!park.length && !nopark.length ? '<p class="muted">Parking details coming soon.</p>' : ''}</div></div>`) +
+      (side.length ? wrap('grey', `<h2>On the sideline</h2><div class="${side.length > 1 ? 'two' : ''}">${side.map(x => `<div>${x}</div>`).join('')}</div>`) : '') +
+      (tuck ? wrap('', `<h2>Tuck shop</h2><p>${E(tuck)}</p>`) : '') +
+      wrap('grey', `<h2>Your age group</h2><p class="noprint">${[['', 'All teams']].concat(tl.map(x => [x.slug, tname(x)])).map(([s, n]) => `<a class="btn ${s === (tsel || '') ? '' : 'w'}" style="${s === (tsel || '') ? '' : 'border:1px solid var(--line)'}" href="?t=${E(s)}">${E(n)}</a>`).join('')}</p>${shown.map(sec).join('') || '<p class="muted">No teams yet.</p>'}`) +
+      wrap('', `${docs}<h2>Next matches</h2>${up.slice(0, 5).map(fxRow).join('') || '<p class="muted">Nothing scheduled.</p>'}<p class="noprint" style="margin-top:16px"><a class="btn k" href="/contact.html">Send us a message</a></p>`);
+  };
   let h = '';
   if (pg === 'home') {
     const news = of('news').sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 3), sp = of('sponsor');
@@ -72,7 +91,7 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
         `${t.img ? `<img class="tp" src="${U(t.img)}" alt="${tname(t)}">` : ''}${c && (t.gdFix || t.gdLadder) ? `<p>${t.gdFix ? `<a class="btn t" href="${U(t.gdFix)}">Fixtures and results on Game Day</a>` : ''}${t.gdLadder ? `<a class="btn k" href="${U(t.gdLadder)}">League table</a>` : ''}</p>` : ''}` +
         `<div class="two"><div><h2>Training</h2>${lines(t.sessions).map(l => { const [d, tm, loc] = l.split('|'); return `<div class="fx"><div><b>${E(d)} ${E(tm || '')}</b><small>${E(loc || '')}</small></div></div>`; }).join('') || `<p>${none('To be confirmed.')}</p>`}` +
         (play(t) ? `<h2>Match days</h2><div class="fx"><div><b>${E(t.playDay || 'To be confirmed')}</b><small>${E(t.playVenue || '')}</small></div></div><p class="muted">${E(S.defaultRule || '')}</p>` : `<p class="muted">${E(tname(t))} train only and do not play matches yet.</p>`) +
-        `</div><div><h2>Coaches</h2><p class="pre">${E(t.coaches) || none('Not added yet.')}</p><h2>About</h2><p class="pre">${E(t.info) || none('Not added yet.')}</p></div></div>`) +
+        `</div><div><h2>Coaches</h2><p class="pre">${E(t.coaches) || none('Not added yet.')}</p>${t.volunteers ? `<h2>Volunteers</h2>${lines(t.volunteers).map(l => { const [r, n] = l.split('|'); return `<div class="fx"><div><b>${E(r)}</b><small>${E(n || '')}</small></div></div>`; }).join('')}` : ''}<h2>About</h2><p class="pre">${E(t.info) || none('Not added yet.')}</p></div></div>`) +
         (play(t) ? wrap('grey', `<div class="two"><div><h2>Fixtures</h2>${mine.filter(f => !has(f) && !past(f)).sort(asc).map(fxRow).join('') || '<p class="muted">None scheduled.</p>'}</div><div><h2>${c ? 'Results' : 'Previous fixtures'}</h2>${mine.filter(f => has(f) || past(f)).sort(desc).map(fxRow).join('') || `<p class="muted">${c ? 'No results yet.' : 'None yet.'}</p>`}</div></div>`) : '') + gdBand(t);
     }
   } else if (pg === 'fixtures') {
@@ -90,7 +109,7 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
     const groups = pg === 'documents' ? ['Parents', 'Players', 'Coaches', 'Volunteers', 'Governance'] : ['Match day'];
     const docs = groups.map(g => { const d = of('doc').filter(x => x.group === g); return d.length ? `<h2>${g}</h2>${d.map(x => `<a class="doc" href="${U(x.url)}">${E(x.title)}${x.note ? `<small>${E(x.note)}</small>` : ''}</a>`).join('')}` : ''; }).join('');
     if (pg === 'documents') h = head('Documents', 'Codes of conduct, rules and governance for parents, players, coaches and volunteers.') + wrap('', docs || '<p class="muted">No documents yet.</p>');
-    else h = head('Match day', 'Where to go and what to know on match days.') + wrap('', `<div class="two"><div><h2>Address</h2><p class="pre">${E(S.address)}</p>${S.map ? `<a class="btn" href="${U(S.map)}">Open in Google Maps</a>` : ''}<h2>what3words</h2>${lines(S.w3w).map(l => { const [a, b] = l.split('|'); return `<a class="doc" href="https://what3words.com/${E(b)}">${E(a)}<small>///${E(b)}</small></a>`; }).join('')}</div><div><h2>Next matches</h2>${up.slice(0, 5).map(fxRow).join('') || '<p class="muted">Nothing scheduled.</p>'}${docs}<h2>Contact</h2><a class="btn k" href="/contact.html">Send us a message</a></div></div>`);
+    else h = matchDay(docs);
   } else if (pg === 'committee') {
     const ms = of('member');
     h = head('Committee', 'The volunteers who run the club.') + wrap('', `<div class="grid">${ms.map(m => `<div class="card mem">${m.img ? `<img src="${U(m.img)}" alt="${E(m.name)}">` : ''}<h3>${E(m.name)}</h3><b>${E(m.role)}</b><p class="pre">${E(m.desc)}</p></div>`).join('') || '<p class="muted">No committee members added yet.</p>'}</div>`);
@@ -110,6 +129,10 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
     h = head('Contact us', E(S.contactIntro || 'Send us a message and we will get back to you.')) + wrap('', `<div class="two"><form class="cf" id="cf"><label>Your name<input name="name" required maxlength="100"></label><label>Your email<input name="email" type="email" required></label><label>Message<textarea name="message" rows="6" required maxlength="4000"></textarea></label><div class="hp" aria-hidden="true"><input name="website" tabindex="-1" autocomplete="off"></div>${S.turnstile ? `<div class="cf-turnstile" data-sitekey="${E(S.turnstile)}"></div>` : ''}<p id="cm" style="font-weight:600"></p><button class="btn" type="submit">Send message</button></form><div><h2>Find us</h2><p class="pre">${E(S.address)}</p>${S.map ? `<a class="btn" href="${U(S.map)}">Open in Google Maps</a>` : ''}</div></div>`);
   }
   $('#main').innerHTML = h;
+  if (pg === 'matchday') {
+    $('#cp').onclick = async () => { try { await navigator.clipboard.writeText(location.href); $('#cp').textContent = 'Link copied'; } catch (e) { prompt('Copy this link', location.href); } };
+    $('#pr').onclick = () => print();
+  }
   if (pg === 'contact') {
     if (S.turnstile) { const s = document.createElement('script'); s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'; s.async = true; document.head.appendChild(s); }
     $('#cf').onsubmit = async e => {

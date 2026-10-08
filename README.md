@@ -71,3 +71,6 @@ One way to get a feed from Spond (Spond has no public feed of its own): on a pho
 ## Events page and homepage photo
 - Events lists everything coming up. Teams with a calendar feed show all their calendar events (training, matches, socials); other teams show their fixtures.
 - Settings > Homepage photo: upload a good, wide photo. "Blue tint over the homepage photo" sets how strongly blue covers it (25 is the default). With no photo the homepage hero is plain blue.
+
+## Match day page
+Settings holds the welcome message, parking, where not to park, sideline do and do-not lists, tuck shop text, address and what3words. Each team (Teams > Edit) has its own after-match function, map link, coaches and volunteers (Role|Name per line). Competitive teams automatically show a Water Carrier line. The page has Copy link, Email and Print buttons, and /matchday.html?t=u12 shows one age group only, so you can send a team its own link.
