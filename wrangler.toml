@@ -1,5 +1,21 @@
 name = "ackworth-jaguars-website"
+main = "src/worker.js"
 compatibility_date = "2026-09-10"
 
 [assets]
-directory = "."
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*", "/media/*", "/go/*", "/p/*"]
+
+# Reads Game Day at 1pm and 8pm UK time (runs at 12, 13, 19 and 20 UTC and skips the wrong ones)
+[triggers]
+crons = ["0 12,13,19,20 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ackworthjaguarswebsite"
+database_id = "e1dfe06a-6c6c-451d-97d4-f475e3c504f2"
+
+# Contact form email. Turn on Email Routing in Cloudflare first, then remove the # from the next two lines.
+# [[send_email]]
+# name = "EMAIL"

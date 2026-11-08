@@ -1,7 +1,80 @@
-# Ackworth Jaguars Website V2
+# Ackworth Jaguars website (v2)
 
-Full multi-page public site and portal prototype.
+Cloudflare Worker + static site. D1 holds content, users, photos and PDFs. No payment card needed.
 
-Public pages are separate HTML pages, not homepage scroll sections. The portal prototype at `/admin/` covers pages, page builder, media, teams/seasons, fixtures, news, sponsors, documents, navigation and settings.
+## Deploy
+1. Cloudflare dashboard > Storage & databases: create a D1 database (this repo is set up for the name `ackworthjaguarswebsite`).
+2. Put the D1 database id in `wrangler.toml` (`database_id`).
+3. In the D1 console, run `schema.sql`, then `seed.sql`.
+4. Replace the contents of the `v2-design` branch with this folder and push.
+5. Workers & Pages > Create > Import a repository, pick the repo and branch. Deploy command: `npx wrangler deploy`.
+6. Open `/admin/`. First visit asks for an admin username and password, then shows a key to add to your authenticator app.
 
-Production architecture: Cloudflare Workers + Static Assets, D1 for structured content, R2 for media/PDFs, authenticated admin portal, and Workers API. Team records are independent of age labels so U12 can become U13 each season while history remains intact; a new U6 page can be created from a template each season.
+## Levels
+- admin: everything, plus settings and users
+- editor: all content and documents
+- coach: fixtures, results and news
+
+## Before cancelling Spond
+Download the code of conduct PDFs from the old site and re-upload them in Documents. The seeded links still point at Spond storage.
+
+## Domain
+After testing: Worker > Settings > Domains & routes > add `ackworthjaguars.co.uk` (the domain's DNS must be on Cloudflare).
+
+## Preview on your own PC
+The pages are filled in by the Worker, so double-clicking an .html file shows a blank page. Run:
+```
+npx wrangler d1 execute jaguars --local --file=schema.sql
+npx wrangler d1 execute jaguars --local --file=seed.sql
+npx wrangler dev
+```
+Then open http://localhost:8787 (admin at /admin/).
+
+## Contact form
+Every message is saved in the portal under Messages. To also get it by email, and to switch on the spam check:
+1. Spam check: Cloudflare dashboard > Turnstile > add a widget for your site hostnames. Paste the Site key into Settings > Turnstile site key. Add the Secret key to the Worker as a secret named `TURNSTILE_SECRET` (Worker > Settings > Variables and secrets).
+2. Email: needs the domain on Cloudflare. Enable Email Routing, add the club email as a destination address and verify it, then remove the `#` from the `send_email` lines in `wrangler.toml` and redeploy. In Settings set Club email (the verified address) and Send-from address (an address on your domain, e.g. website@ackworthjaguars.co.uk).
+
+## New season
+Teams > Move all teams up one age group. Everything stays with the squad. Add your new youngest team.
+
+## Game Day league table and fixtures
+For each competitive team, paste the two Game Day links into Teams > Edit:
+- Game Day fixtures and results link: the team's "Season Fixture" page (a=SFIX)
+- Game Day league table link: the team's "Ladders" page (a=LADDER)
+Links must start with https://websites.mygameday.app. The site reads them at 1pm and 8pm UK time every day and shows the table and fixtures in the site's own styling, with the time it was last updated. Teams > "Refresh Game Day data now" does it straight away and reports what it found. If Game Day can't be read, the last good copy stays on the site.
+
+## Authenticator trouble
+Setup, Add user and Reset login all show a QR code to scan with the authenticator app. If a login ever fails with "wrong code", check the phone's date and time are set to automatic. To start again as the only admin, run this in the D1 console, then open /admin/ to set up again:
+```
+DELETE FROM sessions;
+DELETE FROM users;
+DELETE FROM kv WHERE k LIKE 'f:%';
+```
+
+## Extra pages (for example a Club Shop)
+Portal > Extra pages. Choose "Link to another website" (the menu item opens that address in a new tab, and /go/your-page-name also redirects there) or "Page with text" (title, text and a picture, shown at /p/your-page-name). Tick "Show in menu" or hide it.
+
+## Adding users
+Portal > Users > Invite a user. You get a private link to send them. They choose their own password and scan their own authenticator QR code. The link works once, for 7 days. "Reset login" makes a new link the same way.
+
+## Home page
+- "This week" lists every fixture for every team from Monday to Sunday of the current week, grouped by day. On Monday it moves on to the new week.
+- Primary and Mini Jags fixtures show no scores. Competitive teams (U12 and up by default) show scores and a Win, Draw or Loss badge, and get their league table and latest result on the home page.
+- Primary team fixtures are typed in under Fixtures and results in the portal. Competitive teams come from Game Day.
+
+## Fixtures from a calendar
+Teams > Edit > "Calendar feed link for matches". Paste the .ics or webcal link of a Google Calendar that holds the team's Spond events (Google Calendar on a computer > calendar settings > Integrate calendar > Secret address in iCal format). The site reads it at 1pm and 8pm UK time.
+- Only matches are used: the event title has two team names split by a dash, for example "Heworth U10 - Ackworth Jaguars U10s". Training and other events are ignored, and the finish time is not used.
+- Home, away or neutral comes from the description ("Away Game"), or from which team is named first if the description does not say.
+- The age group is read from our team's name (U10s), so a calendar holding several age groups only feeds the right team.
+- The calendar location becomes a Get directions button that opens Google Maps. Home games use the address in Settings.
+- Competitive teams (Game Day) borrow the location from a calendar match on the same day.
+Treat a secret calendar link like a password.
+
+## Events page and homepage photo
+- Events lists everything coming up. Teams with a calendar feed show all their calendar events (training, matches, socials); other teams show their fixtures.
+- Settings > Homepage photo: upload a good, wide photo. "Blue tint over the homepage photo" sets how strongly blue covers it (25 is the default). With no photo the homepage hero is plain blue.
+
+## Match day page
+Settings holds the welcome message, parking, where not to park, sideline do and do-not lists, tuck shop text, address and what3words. Each team (Teams > Edit) has its own after-match function, map link, coaches and volunteers (Role|Name per line). Competitive teams automatically show a Water Carrier line. The page has Copy link, Email and Print buttons, and /matchday.html?t=u12 shows one age group only, so you can send a team its own link.
