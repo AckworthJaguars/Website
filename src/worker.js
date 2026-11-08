@@ -167,22 +167,23 @@ async function route(req, env, p, m) {
 
   if (p === '/api/items' && m === 'GET') {
     need(me, 'admin editor coach');
-    const keep = me.role !== 'coach';
+    const keep = me.role === 'admin';
     return J((await db.prepare('SELECT id,kind,sort,data FROM items ORDER BY sort').all()).results.map(x => { const d = JSON.parse(x.data); if (!keep) delete d.icalUrl; return { ...d, id: x.id, kind: x.kind, sort: x.sort }; }));
   }
   if (p === '/api/items' && m === 'POST') {
     need(me, R[b.kind]);
+    if (me.role !== 'admin' && b.data) delete b.data.icalUrl;
     const d = JSON.stringify(b.data || {}); if (d.length > 30000) fail(400, 'Too much text');
     await db.prepare('INSERT INTO items(kind,sort,data) VALUES(?,?,?)').bind(b.kind, String(b.sort || ''), d).run();
     return J({ ok: 1 });
   }
   let x = p.match(/^\/api\/items\/(\d+)$/);
   if (x) {
-    const row = await db.prepare('SELECT kind FROM items WHERE id=?').bind(x[1]).first();
+    const row = await db.prepare('SELECT kind,data FROM items WHERE id=?').bind(x[1]).first();
     if (!row) fail(404, 'Not found');
     need(me, R[row.kind]);
     if (m === 'DELETE') await db.prepare('DELETE FROM items WHERE id=?').bind(x[1]).run();
-    else { const d = JSON.stringify(b.data || {}); if (d.length > 30000) fail(400, 'Too much text'); await db.prepare('UPDATE items SET sort=?,data=? WHERE id=?').bind(String(b.sort || ''), d, x[1]).run(); }
+    else { if (me.role !== 'admin' && b.data) { let o = ''; try { o = JSON.parse(row.data).icalUrl || ''; } catch (e) {} if (o) b.data.icalUrl = o; else delete b.data.icalUrl; } const d = JSON.stringify(b.data || {}); if (d.length > 30000) fail(400, 'Too much text'); await db.prepare('UPDATE items SET sort=?,data=? WHERE id=?').bind(String(b.sort || ''), d, x[1]).run(); }
     return J({ ok: 1 });
   }
   if (p === '/api/messages' && m === 'GET') { need(me, 'admin editor'); return J((await db.prepare('SELECT * FROM messages ORDER BY ts DESC LIMIT 100').all()).results); }

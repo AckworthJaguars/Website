@@ -3,7 +3,7 @@ const E = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 const U = u => /^(https?:\/\/|\/|mailto:)/.test(u || '') ? E(u) : '#';
 const fd = d => new Date(d).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 const dd = d => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-const NAV = [['teams', 'Teams'], ['fixtures', 'Fixtures'], ['events', 'Events'], ['news', 'News'], ['matchday', 'Match day'], ['documents', 'Documents'], ['volunteers', 'Volunteers'], ['committee', 'Committee'], ['sponsors', 'Sponsors'], ['contact', 'Contact']];
+const NAV = [['teams', 'Teams'], ['fixtures', 'Fixtures'], ['news', 'News'], ['matchday', 'Match day'], ['documents', 'Documents'], ['volunteers', 'Volunteers'], ['committee', 'Committee'], ['sponsors', 'Sponsors'], ['contact', 'Contact']];
 const q = new URLSearchParams(location.search);
 
 fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); return r.json(); }).then(({ settings: S, items: I, gd: GD = {} }) => {
@@ -23,13 +23,20 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
   ['blue', 'black', 'teal'].forEach(c => S[c] && root.setProperty('--' + c, S[c]));
   const club = S.club || 'Ackworth Jaguars';
   document.title = (pg === 'home' ? '' : pg[0].toUpperCase() + pg.slice(1) + ' | ') + club;
+  const wk0 = new Date(); wk0.setHours(0, 0, 0, 0); wk0.setDate(wk0.getDate() - ((wk0.getDay() + 6) % 7));
+  const wk1 = new Date(wk0); wk1.setDate(wk1.getDate() + 7); const wend = new Date(wk1); wend.setDate(wend.getDate() - 1);
+  const week = fx.filter(f => { const d = new Date(f.date); return d >= wk0 && d < wk1; }).sort(asc);
+  const wl = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+  const weekHtml = () => { const wd = []; week.forEach(f => { const k = f.date.slice(0, 10); let g = wd.find(x => x.k === k); if (!g) wd.push(g = { k, items: [] }); g.items.push(f); }); return `<p class="muted">Monday ${wl(wk0)} to Sunday ${wl(wend)}</p>` + (wd.map(g => `<h3>${new Date(g.k + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>${g.items.map(fxRow).join('')}`).join('') || '<p class="muted">No fixtures this week.</p>'); };
+  const teamBtns = (href) => `<p class="tbtn">${teams.filter(play).map(x => `<a class="btn ${comp(x) ? '' : 'k'}" href="${href}?t=${E(x.slug)}">${E(tname(x))} fixtures${comp(x) ? ' and results' : ''}</a>`).join('')}</p>`;
   const OUT = { W: 'Win', D: 'Draw', L: 'Loss' };
   const homeAddr = String(S.address || '').split('\n').filter(Boolean).join(', ');
   const fxRow = f => {
     const o = has(f) ? (+f.us > +f.them ? 'W' : +f.us < +f.them ? 'L' : 'D') : '', dest = f.home === true ? homeAddr : (f.loc || '');
     const tag = f.neutral ? '<span class="tag">Neutral</span>' : f.home === true ? '<span class="tag h">Home</span>' : f.home === false ? '<span class="tag">Away</span>' : '';
     const right = o ? `<div class="rs"><span class="res ${o}">${OUT[o]}</span><span class="sc ${o}">${E(f.us)} - ${E(f.them)}</span></div>` : (compTeam(f.team) && past(f) ? '<span class="muted">Result awaited</span>' : (!past(f) && dest ? `<a class="dir noprint" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(dest)}" target="_blank" rel="noopener">Directions</a>` : ''));
-    return `<div class="fx"><div><b>${f.title ? E(f.title.toLowerCase().includes(tn(f.team).toLowerCase()) ? f.title : tn(f.team) + ': ' + f.title) : E(tn(f.team)) + ' v ' + E(f.opp)}</b><small>${tag}${f.date ? fd(f.date) : ''}${f.venue ? ' · ' + E(f.venue) : ''}</small></div>${right}</div>`;
+    const d = new Date(f.date), ok = !isNaN(d), main = f.title ? E(f.title) : E(tn(f.team)) + ' v ' + E(f.opp);
+    return `<div class="fx ${o || (past(f) ? 'pst' : 'up')}"><div class="dt">${ok ? `<span>${d.toLocaleDateString('en-GB', { weekday: 'short' })}</span><b>${d.getDate()}</b><span>${d.toLocaleDateString('en-GB', { month: 'short' })}</span>` : ''}</div><div class="fm"><span class="tm">${E(tn(f.team))}</span><b>${main}</b><small>${tag}${ok ? d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}${f.venue ? ' · ' + E(f.venue) : ''}</small></div>${right}</div>`;
   };
   const wrap = (cls, h) => `<section class="band ${cls}"><div class="wrap">${h}</div></section>`;
   const head = (t, p) => wrap('blue', `<h1>${t}</h1>${p ? `<p>${p}</p>` : ''}`);
@@ -46,7 +53,7 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
   $('#tg').onclick = () => $('#nv').classList.toggle('open');
   const fit = () => { const hd = $('#hdr'); hd.classList.remove('burger', 'nobrand'); $('#nv').classList.remove('open'); if (hd.offsetHeight > 90) hd.classList.add('nobrand'); if (hd.offsetHeight > 90) hd.classList.add('burger'); };
   fit(); addEventListener('resize', fit); if (document.fonts) document.fonts.ready.then(fit);
-  $('#ftr').innerHTML = `<div class="wrap"><div class="fg"><div><h3>${E(club)}</h3><p>${E(S.hero || '')}</p></div><div><h3>Find us</h3><p class="pre">${E(S.address)}</p></div><div><h3>Follow</h3>${soc}${S.email ? `<a href="mailto:${E(S.email)}">${E(S.email)}</a>` : ''}</div><div><h3>Club</h3><a href="/documents.html">Documents</a><a href="/matchday.html">Match day</a><a href="/contact.html">Contact</a>${xl}<a href="/admin/">Club login</a></div></div><small>© ${new Date().getFullYear()} ${E(club)} · ${E(S.season || '')} · Site version 8 Oct 2026 (private calendar link)</small></div>`;
+  $('#ftr').innerHTML = `<div class="wrap"><div class="fg"><div><h3>${E(club)}</h3><p>${E(S.hero || '')}</p></div><div><h3>Find us</h3><p class="pre">${E(S.address)}</p></div><div><h3>Follow</h3>${soc}${S.email ? `<a href="mailto:${E(S.email)}">${E(S.email)}</a>` : ''}</div><div><h3>Club</h3><a href="/documents.html">Documents</a><a href="/matchday.html">Match day</a><a href="/contact.html">Contact</a>${xl}<a href="/admin/">Club login</a></div></div><small>© ${new Date().getFullYear()} ${E(club)} · ${E(S.season || '')} · Site version 8 Nov 2026 (fixture cards)</small></div>`;
 
   const ladder = l => { const opt = l.head.map(x => /^(for|agst)$/i.test(x) ? ' class="opt"' : ''); return `<div class="lw"><table class="lt"><thead><tr>${l.head.map((x, i) => `<th${opt[i]}>${E(x)}</th>`).join('')}</tr></thead><tbody>${l.rows.map(r => `<tr class="${/ackworth/i.test(r[1]) ? 'us' : ''}">${r.map((c, i) => `<td${opt[i]}>${E(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; };
   const stamp = g => `<p class="muted" style="margin-top:12px">Last updated ${new Date(g.checked).toLocaleString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}${g.ladder.uploaded ? ' · Game Day table last uploaded ' + E(g.ladder.uploaded) : ''} · Data from GameDay</p>`;
@@ -74,16 +81,11 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
   let h = '';
   if (pg === 'home') {
     const news = of('news').sort((a, b) => a.date < b.date ? 1 : -1).slice(0, 3), sp = of('sponsor');
-    const wk0 = new Date(); wk0.setHours(0, 0, 0, 0); wk0.setDate(wk0.getDate() - ((wk0.getDay() + 6) % 7));
-    const wk1 = new Date(wk0); wk1.setDate(wk1.getDate() + 7); const wend = new Date(wk1); wend.setDate(wend.getDate() - 1);
-    const week = fx.filter(f => { const d = new Date(f.date); return d >= wk0 && d < wk1; }).sort(asc), wd = [];
-    week.forEach(f => { const k = f.date.slice(0, 10); let g = wd.find(x => x.k === k); if (!g) wd.push(g = { k, items: [] }); g.items.push(f); });
-    const wl = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
     const comps = teams.filter(comp).map(t => { const last = fx.filter(f => f.team === t.slug && has(f)).sort(asc).pop(); return (last ? `<h2>${tname(t)}: latest result</h2>${fxRow(last)}` : '') + gdBlock(t, tname(t) + ' league table'); }).filter(Boolean);
     let flip = 0; const band = x => wrap(flip++ % 2 ? 'grey' : '', x);
     const bg = S.heroImg || '', ov = Math.min(100, Math.max(0, +(S.heroOverlay === undefined || S.heroOverlay === '' ? 25 : S.heroOverlay)));
     h = `<section class="hero" ${bg ? `style="background-image:linear-gradient(color-mix(in srgb,var(--blue) ${ov}%,transparent),color-mix(in srgb,var(--blue) ${ov}%,transparent)),url('${U(bg)}')"` : ''}><div class="wrap"><h1>${E(S.hero || club)}</h1><p>${E(S.intro || '')}</p><a class="btn w" href="${joinHref}"${joinExt}>Join the Jags</a><a class="btn w" href="/fixtures.html">Fixtures and results</a></div></section>` +
-      band(`<h2>This week</h2><p class="muted">Monday ${wl(wk0)} to Sunday ${wl(wend)}</p>${wd.map(g => `<h3>${new Date(g.k + 'T12:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h3>${g.items.map(fxRow).join('')}`).join('') || '<p class="muted">No fixtures this week.</p>'}<p style="margin-top:16px"><a class="btn" href="/fixtures.html">All fixtures and results</a></p>`) +
+      band(`<h2>This weekend's fixtures</h2>${weekHtml()}<h3 style="margin-top:22px">More fixtures and results</h3>${teamBtns('/fixtures.html')}`) +
       (comps.length ? band(comps.join('')) : '') +
       band(`<h2>Our teams</h2><div class="grid">${teams.map(t => `<a class="card" href="/teams.html?t=${E(t.slug)}"><h3>${tname(t)}</h3><p>${lvl(t)}</p></a>`).join('')}</div>`) +
       (news.length ? band(`<h2>Latest news</h2><div class="grid">${news.map(x => `<a class="card" href="/news.html"><h3>${E(x.title)}</h3><p>${dd(x.date)}</p></a>`).join('')}</div>`) : '') +
@@ -101,14 +103,10 @@ fetch('/api/public').then(r => { if (!r.ok) throw new Error('API ' + r.status); 
         (play(t) ? wrap('grey', `<div class="two"><div><h2>Fixtures</h2>${mine.filter(f => !has(f) && !past(f)).sort(asc).map(fxRow).join('') || '<p class="muted">None scheduled.</p>'}</div><div><h2>${c ? 'Results' : 'Previous fixtures'}</h2>${mine.filter(f => has(f) || past(f)).sort(desc).map(fxRow).join('') || `<p class="muted">${c ? 'No results yet.' : 'None yet.'}</p>`}</div></div>`) : '') + gdBand(t);
     }
   } else if (pg === 'fixtures') {
-    const t = q.get('t'), f = a => a.filter(x => !t || x.team === t);
-    h = head('Fixtures and results', E(S.season || '')) + wrap('', `<p>${[['', 'All teams']].concat(teams.filter(play).map(x => [x.slug, tname(x)])).map(([s, n]) => `<a class="btn ${s === (t || '') ? '' : 'w'}" style="${s === (t || '') ? '' : 'border:1px solid var(--line)'}" href="?t=${E(s)}">${E(n)}</a>`).join('')}</p><div class="two"><div><h2>Upcoming</h2>${f(up).map(fxRow).join('') || '<p class="muted">Nothing scheduled.</p>'}</div><div><h2>Previous fixtures and results</h2>${f(res).map(fxRow).join('') || '<p class="muted">None yet.</p>'}</div></div>`);
-  } else if (pg === 'events') {
-    const tq = q.get('t'), evs = [];
-    teams.forEach(t => { const g = GD[t.slug] || {}; if (g.events && g.events.length) g.events.forEach((e, i) => evs.push({ ...e, kind: 'event', id: 'e' + t.slug + i, team: t.slug, loc: e.loc || e.venue, us: '', them: '' })); else fx.filter(f => f.team === t.slug).forEach(f => evs.push(f)); });
-    const shown = evs.filter(e => !past(e) && (!tq || e.team === tq)).sort(asc), months = [];
-    shown.forEach(e => { const k = e.date.slice(0, 7); let m = months.find(x => x.k === k); if (!m) months.push(m = { k, items: [] }); m.items.push(e); });
-    h = head('Events', 'Training, matches and club events coming up.') + wrap('', `<p>${[['', 'All teams']].concat(teams.map(x => [x.slug, tname(x)])).map(([s, n]) => `<a class="btn ${s === (tq || '') ? '' : 'w'}" style="${s === (tq || '') ? '' : 'border:1px solid var(--line)'}" href="?t=${E(s)}">${E(n)}</a>`).join('')}</p>${months.map(m => `<h2>${new Date(m.k + '-15T12:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>${m.items.map(fxRow).join('')}`).join('') || '<p class="muted">Nothing coming up yet.</p>'}`);
+    const t = q.get('t'), tm = teams.find(x => x.slug === t);
+    if (tm) h = head(tname(tm) + ' fixtures' + (comp(tm) ? ' and results' : ''), E(S.season || '')) + wrap('', `<p class="noprint"><a class="btn k" href="/fixtures.html">Back to this weekend</a><a class="btn w" style="border:1px solid var(--line)" href="/teams.html?t=${E(t)}">Team page</a></p><div class="two"><div><h2>Upcoming</h2>${up.filter(x => x.team === t).map(fxRow).join('') || '<p class="muted">Nothing scheduled.</p>'}</div><div><h2>${comp(tm) ? 'Results' : 'Previous fixtures'}</h2>${res.filter(x => x.team === t).map(fxRow).join('') || '<p class="muted">None yet.</p>'}</div></div>`) + gdBand(tm);
+    else h = head('Fixtures', E(S.season || '')) + wrap('', `<h2>This weekend</h2>${weekHtml()}`) + wrap('grey', `<h2>More fixtures and results</h2><p>Pick a team to see everything coming up and everything played.</p>${teamBtns('')}`);
+  } else if (pg === 'events') { location.replace('/fixtures.html');
   } else if (pg === 'news') {
     h = head('News') + wrap('', of('news').sort((a, b) => a.date < b.date ? 1 : -1).map(x => `<article style="margin-bottom:40px"><h2>${E(x.title)}</h2><p class="muted">${x.date ? dd(x.date) : ''}</p>${x.img ? `<img src="${U(x.img)}" alt="" style="margin-bottom:16px;border-radius:6px;max-height:420px">` : ''}<p class="pre">${E(x.body)}</p></article>`).join('') || '<p class="muted">No news yet.</p>');
   } else if (pg === 'documents' || pg === 'matchday') {
